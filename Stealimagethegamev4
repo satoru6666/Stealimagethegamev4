@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Generator Interaktif</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Gaya untuk font Inter */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Memuat font Inter dari Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Gaya untuk loader */
+        .loader {
+            border: 4px solid #4a4a4a; /* Darker grey */
+            border-top: 4px solid #6366f1; /* Indigo blue for contrast */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8 w-full max-w-2xl">
+        <h1 class="text-3xl font-bold text-center text-gray-50 mb-2">Image Generator Interaktif</h1>
+        <p class="text-center text-gray-300 mb-6">Buat gambar dan bercakap-cakap dengan subjek di dalamnya.</p>
+
+        
+        <div id="error-message" class="hidden bg-red-800 border border-red-600 text-red-100 px-4 py-3 rounded-lg relative mb-4" role="alert">
+            <span class="block sm:inline" id="error-text"></span>
+        </div>
+
+        
+        <div class="mb-4">
+            <div class="flex justify-between items-center mb-2">
+                <label for="prompt-input" class="block text-sm font-medium text-gray-200">
+                    Masukkan Prompt Awal Cerita:
+                </label>
+                <button id="suggest-prompt-btn" class="text-xs bg-indigo-500 text-white px-3 py-1 rounded-lg shadow-sm hover:bg-indigo-400 transition-colors">✨ Buat Ide Prompt</button>
+            </div>
+            <textarea id="prompt-input" rows="3" class="w-full p-3 border border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 bg-gray-700 text-gray-50 placeholder-gray-400" placeholder="Contoh: seorang detektif di kantornya yang berantakan, malam hari, sedang memegang foto misterius"></textarea>
+        </div>
+
+        
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-200 mb-2">
+                Gambar Referensi Wajah (Opsional, untuk konsistensi wajah):
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                
+                <div class="text-center">
+                    <input type="file" id="image-ref-1" class="hidden image-ref-input" accept="image/*" data-preview="preview-1">
+                    <label for="image-ref-1" class="cursor-pointer block w-full h-24 bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center hover:bg-gray-600">
+                        <img id="preview-1" class="h-full w-full object-cover rounded-lg hidden" alt="Pratinjau 1">
+                        <span id="text-1" class="text-gray-400 text-sm">Klik untuk Unggah</span>
+                    </label>
+                </div>
+                
+                <div class="text-center">
+                    <input type="file" id="image-ref-2" class="hidden image-ref-input" accept="image/*" data-preview="preview-2">
+                    <label for="image-ref-2" class="cursor-pointer block w-full h-24 bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center hover:bg-gray-600">
+                        <img id="preview-2" class="h-full w-full object-cover rounded-lg hidden" alt="Pratinjau 2">
+                        <span id="text-2" class="text-gray-400 text-sm">Klik untuk Unggah</span>
+                    </label>
+                </div>
+                
+                <div class="text-center">
+                    <input type="file" id="image-ref-3" class="hidden image-ref-input" accept="image/*" data-preview="preview-3">
+                    <label for="image-ref-3" class="cursor-pointer block w-full h-24 bg-gray-700 border-2 border-dashed border-gray-600 rounded-lg flex items-center justify-center hover:bg-gray-600">
+                        <img id="preview-3" class="h-full w-full object-cover rounded-lg hidden" alt="Pratinjau 3">
+                        <span id="text-3" class="text-gray-400 text-sm">Klik untuk Unggah</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        
+        <button id="generate-btn" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition duration-200 ease-in-out">
+            Mulai Cerita
+        </button>
+
+        
+        <div id="loader" class="loader hidden"></div>
+
+        
+        <!-- Kolom untuk Basis Cerita yang Dikembangkan -->
+        <div id="story-basis-container" class="hidden mt-6 p-4 bg-gray-700 rounded-lg border border-gray-600 shadow-inner">
+            <h3 class="text-lg font-semibold text-gray-100 mb-2">Basis Cerita (Act 1 & 2):</h3>
+            <p class="text-gray-300 italic" id="story-basis-text"></p>
+        </div>
+
+        
+        <div id="image-container" class="mt-6 hidden">
+            <img id="result-image" src="" alt="Gambar yang dihasilkan AI" class="w-full rounded-lg shadow-lg border border-gray-700">
+        </div>
+
+        
+        <div id="text-container" class="hidden mt-4 p-4 bg-gray-700 rounded-lg border border-gray-600 shadow-inner">
+            <p class="text-center text-gray-200" id="result-text"></p>
+            <audio id="tts-audio" class="hidden"></audio>
+            
+            <div id="reply-suggestions" class="mt-3 flex flex-wrap gap-2 justify-center hidden">
+                
+            </div>
+        </div>
+
+        
+        <div id="reply-container" class="hidden mt-4">
+            <label for="reply-input" class="block text-sm font-medium text-gray-200 mb-2">
+                Balas atau modifikasi:
+            </label>
+            <textarea id="reply-input" rows="2" class="w-full p-3 border border-gray-600 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 bg-gray-700 text-gray-50 placeholder-gray-400"></textarea>
+            <button id="reply-btn" class="w-full mt-2 bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800 transition duration-200 ease-in-out">
+                Kirim Balasan
+            </button>
+            <div id="reply-loader" class="loader hidden"></div>
+            
+            <div id="reply-error-message" class="hidden bg-red-800 border border-red-600 text-red-100 px-4 py-3 rounded-lg relative mt-2" role="alert">
+                <span class="block sm:inline" id="reply-error-text"></span>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        // --- Referensi Elemen DOM ---
+        const promptInput = document.getElementById('prompt-input');
+        const generateBtn = document.getElementById('generate-btn');
+        const suggestPromptBtn = document.getElementById('suggest-prompt-btn');
+        const loader = document.getElementById('loader');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const imageContainer = document.getElementById('image-container');
+        const resultImage = document.getElementById('result-image');
+        const textContainer = document.getElementById('text-container');
+        const resultText = document.getElementById('result-text');
+        const replyContainer = document.getElementById('reply-container');
+        const replyInput = document.getElementById('reply-input');
+        const replyBtn = document.getElementById('reply-btn');
+        const replyLoader = document.getElementById('reply-loader');
+        const replyErrorMessage = document.getElementById('reply-error-message');
+        const replyErrorText = document.getElementById('reply-error-text');
+        const ttsAudio = document.getElementById('tts-audio');
+        const replySuggestionsContainer = document.getElementById('reply-suggestions');
+        const storyBasisContainer = document.getElementById('story-basis-container');
+        const storyBasisText = document.getElementById('story-basis-text');
+
+        // --- Variabel Status Global ---
+        let currentImageBase64 = null;
+        let currentStoryBasis = ""; // Menyimpan basis cerita yang dikembangkan
+        let currentReferenceImages = [];
+        let conversationHistory = [];
+        let replyCounter = 0; 
+        const INTERRUPT_THRESHOLD = 4; 
+
+        // Daftar skenario interupsi yang aman (SFW) dan netral
+        const interruptScenarios = [
+            "Buat subjek tiba-tiba terlihat kaget atau terkejut oleh sesuatu di luar kamera (misalnya, seekor burung terbang lewat).",
+            "Buat subjek tiba-tiba tersenyum lebar atau tertawa kecil, seolah-olah mengingat sesuatu yang lucu.",
+            "Buat subjek tiba-tiba teringat sesuatu yang penting dan ekspresinya berubah menjadi serius atau khawatir (misalnya, 'Oh, saya lupa sesuatu!').",
+            "Ubah suasana pencahayaan di dalam ruangan secara halus (misalnya, matahari tertutup awan).",
+            "Buat subjek tiba-tiba tampak melamun atau termenung sejenak, melihat ke samping."
+        ];
+        
+        // Daftar Suara TTS
+        const maleVoices = ['Orus', 'Charon', 'Zephyr']; 
+        const femaleVoices = ['Puck', 'Leda', 'Kore'];
+
+        // --- Event Listeners ---
+        generateBtn.addEventListener('click', generateStory);
+        replyBtn.addEventListener('click', handleReply);
+        suggestPromptBtn.addEventListener('click', getPromptSuggestion);
+        
+        replySuggestionsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('suggestion-btn')) {
+                const suggestionText = e.target.dataset.text;
+                replyInput.value = suggestionText;
+                handleReply();
+            }
+        });
+
+        document.querySelectorAll('.image-ref-input').forEach(input => {
+            input.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    const previewId = event.target.dataset.preview;
+                    const previewImg = document.getElementById(previewId);
+                    const previewText = document.getElementById(previewId.replace('preview', 'text'));
+                    
+                    reader.onload = function(e) {
+                        previewImg.src = e.target.result;
+                        previewImg.classList.remove('hidden');
+                        previewText.classList.add('hidden');
+                    }
+                    reader.readAsDataURL(file);
+                } else {
+                    const previewId = event.target.dataset.preview;
+                    const previewImg = document.getElementById(previewId);
+                    const previewText = document.getElementById(previewId.replace('preview', 'text'));
+                    previewImg.src = '';
+                    previewImg.classList.add('hidden');
+                    previewText.classList.remove('hidden');
+                }
+            });
+        });
+
+        // --- Fungsi Helper ---
+
+        function showError(message, target = 'main') {
+            if (target === 'reply') {
+                replyErrorText.textContent = message;
+                replyErrorMessage.classList.remove('hidden');
+                errorMessage.classList.add('hidden');
+            } else {
+                errorText.textContent = message;
+                errorMessage.classList.remove('hidden');
+                replyErrorMessage.classList.add('hidden');
+            }
+        }
+
+        async function fetchWithBackoff(url, options, retries = 3, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    if (response.status >= 500 && retries > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                    }
+                    const errorBody = await response.json().catch(() => ({ error: { message: response.statusText } }));
+                    throw new Error(errorBody?.error?.message || `HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                }
+                console.error('FetchWithBackoff failed after retries:', error);
+                throw new Error(`Network error or invalid JSON response: ${error.message || 'Unknown error'}`);
+            }
+        }
+
+        // (DIUBAH) Basis cerita adalah latar belakang, riwayat adalah fokus
+        function getFormattedHistoryForPromptGeneration() {
+            let historyString = `Konteks Awal (Latar Belakang): "${currentStoryBasis}"\n`;
+            historyString += "Konteks Saat Ini (Fokus Utama):\n"; // (DIUBAH) Label
+            conversationHistory.forEach(entry => {
+                if (entry.role === 'user') {
+                    historyString += `Pengguna: "${entry.content}"\n`;
+                } else if (entry.role === 'ai') {
+                    historyString += `Anda (Subjek): "${entry.content}"\n`;
+                } else if (entry.role === 'system_interrupt') {
+                    historyString += `Peristiwa Sistem: "${entry.content}"\n`;
+                }
+            });
+            return historyString;
+        }
+        
+        function getFormattedHistoryForSuggestions() {
+             return conversationHistory.map(entry => {
+                 return entry.role === 'user' ? `Pengguna: ${entry.content}` : `Subjek: ${entry.content}`;
+            }).slice(-4).join("\n"); 
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    const base64Data = reader.result.split(',')[1];
+                    const mimeType = reader.result.split(';')[0].split(':')[1];
+                    resolve({ base64Data, mimeType });
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+        
+        // --- Fungsi Helper TTS ---
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function pcmToWav(pcmData, sampleRate) {
+            const numChannels = 1;
+            const bitsPerSample = 16;
+            const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+            const blockAlign = numChannels * (bitsPerSample / 8);
+            const wavData = new ArrayBuffer(44 + pcmData.byteLength);
+            const view = new DataView(wavData);
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + pcmData.byteLength, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitsPerSample, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, pcmData.byteLength, true);
+            new Int16Array(wavData, 44).set(pcmData);
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        async function generateAndPlaySpeech(analysis) {
+            const { gender, tone, dialog } = analysis;
+            
+            let voiceName;
+            if (gender && gender.toLowerCase() === 'pria') {
+                voiceName = maleVoices[Math.floor(Math.random() * maleVoices.length)];
+            } else {
+                voiceName = femaleVoices[Math.floor(Math.random() * femaleVoices.length)];
+            }
+            
+            const ttsPrompt = `Katakan dengan nada ${tone || 'ramah'}: ${dialog}`;
+            console.log(`Requesting TTS: [Voice: ${voiceName}] [Prompt: ${ttsPrompt}]`);
+
+            const apiKey = ""; 
+            const ttsApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: ttsPrompt }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: { 
+                            prebuiltVoiceConfig: { voiceName: voiceName } 
+                        } 
+                    }
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            try {
+                const result = await fetchWithBackoff(ttsApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const part = result?.candidates?.[0]?.content?.parts?.[0];
+                const audioData = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType;
+
+                if (audioData && mimeType && mimeType.startsWith("audio/L16")) {
+                    const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                    const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 24000;
+                    const pcmData = base64ToArrayBuffer(audioData);
+                    const pcm16 = new Int16Array(pcmData);
+                    const wavBlob = pcmToWav(pcm16, sampleRate);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+                    ttsAudio.src = audioUrl;
+                    ttsAudio.play().catch(e => console.error("Audio play failed:", e));
+                } else {
+                    console.warn("TTS response did not contain valid audio data.", result);
+                }
+            } catch (error) {
+                console.error("Error generating speech:", error);
+            }
+        }
+
+        // --- Fungsi LLM ---
+
+        async function getPromptSuggestion() {
+            suggestPromptBtn.disabled = true;
+            suggestPromptBtn.textContent = 'Meminta ide...';
+            errorMessage.classList.add('hidden');
+
+            const apiKey = "";
+            const textApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            // Ditambahkan instruksi SFW
+            const systemPrompt = "Anda adalah asisten kreatif. Tulis satu ide prompt cerita singkat (5-10 kata) yang 100% aman (SFW) untuk generator gambar POV interaktif. Tema harus SFW. Contoh: 'Detektif di kantornya', 'Kencan pertama di kafe', 'Pasar malam yang ajaib'. Jawab hanya dengan promptnya saja dalam Bahasa Indonesia.";
+            const payload = { contents: [{ parts: [{ text: systemPrompt }] }] };
+
+            try {
+                const result = await fetchWithBackoff(textApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const newPrompt = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!newPrompt) {
+                    throw new Error("Model teks gagal menghasilkan ide prompt.");
+                }
+                promptInput.value = newPrompt.trim().replace(/"/g, '');
+            } catch (error) {
+                console.error("Error generating prompt suggestion:", error);
+                showError("Gagal mendapatkan ide prompt: " + error.message, 'main');
+            } finally {
+                suggestPromptBtn.disabled = false;
+                suggestPromptBtn.innerHTML = '✨ Buat Ide Prompt';
+            }
+        }
+        
+        async function getReplySuggestions(aiDialog) {
+            replySuggestionsContainer.innerHTML = ''; // Kosongkan
+            replySuggestionsContainer.classList.add('hidden');
+
+            const apiKey = "";
+            const textApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const historyContext = getFormattedHistoryForSuggestions();
+            // Ditambahkan instruksi SFW
+            const systemPrompt = `Anda adalah asisten percakapan. Berikan 3 balasan singkat (masing-masing 1-5 kata) yang 100% aman (SFW) yang akan dilontarkan oleh pengguna, sesuai dengan konteks cerita.
+---
+Konteks Cerita: ${currentStoryBasis}
+Konteks Percakapan:
+${historyContext}
+---
+Dialog Subjek: "${aiDialog}"
+---
+Tulis 3 balasan saja, dipisahkan oleh tanda pipa (|). Contoh: Ya, tentu|Tidak, terima kasih|Apa maksudmu?`;
+            
+            const payload = { contents: [{ parts: [{ text: systemPrompt }] }] };
+
+            try {
+                const result = await fetchWithBackoff(textApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const responseText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!responseText) {
+                    throw new Error("Model teks gagal menghasilkan saran balasan.");
+                }
+                
+                const suggestions = responseText.split('|').map(s => s.trim()).filter(s => s.length > 0);
+                
+                if (suggestions.length > 0) {
+                    suggestions.slice(0, 3).forEach(suggestion => {
+                        const btn = document.createElement('button');
+                        btn.className = 'suggestion-btn text-xs bg-gray-600 text-gray-200 px-3 py-1 rounded-full hover:bg-gray-500 transition-colors';
+                        btn.textContent = suggestion;
+                        btn.dataset.text = suggestion;
+                        replySuggestionsContainer.appendChild(btn);
+                    });
+                    replySuggestionsContainer.classList.remove('hidden');
+                }
+                
+            } catch (error) {
+                console.error("Error generating reply suggestions:", error);
+                // Gagal secara diam-diam
+            }
+        }
+
+        async function getDialogueAndSpeechAnalysis(base64Data) {
+            textContainer.classList.remove('hidden');
+            resultText.textContent = 'Subjek sedang berpikir...';
+            resultText.className = 'text-center text-gray-400 italic';
+            replySuggestionsContainer.classList.add('hidden'); // Sembunyikan saran lama
+
+            const apiKey = "";
+            const visionApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const formattedHistory = conversationHistory.map(entry => {
+                 return entry.role === 'user' ? `Pengguna: ${entry.content}` : `Anda (Subjek): ${entry.content}`;
+            }).slice(-4).join("\n"); 
+
+            // Prompt disederhanakan
+            const visionPrompt = `Anda adalah subjek dalam gambar. Berikan analisis JSON berdasarkan gambar dan konteks.
+Konteks Cerita (Latar Belakang): ${currentStoryBasis}
+Konteks Percakapan (Fokus Saat Ini): ${formattedHistory}
+Dialog harus 100% SFW.`;
+
+            const responseSchema = {
+                type: "OBJECT",
+                properties: {
+                    "gender": { "type": "STRING", "description": "Gender subjek di gambar, 'pria' atau 'wanita'." },
+                    "tone": { "type": "STRING", "description": "Nada emosional dari dialog, misal: 'senang', 'sedih', 'kaget', 'ramah', 'serius'." },
+                    "dialog": { "type": "STRING", "description": "Dialog 1-2 kalimat dari subjek kepada pengguna (harus SFW)." }
+                },
+                required: ["gender", "tone", "dialog"]
+            };
+
+            const payload = {
+                contents: [
+                    {
+                        parts: [
+                            { text: visionPrompt },
+                            { inlineData: { mimeType: "image/png", data: base64Data } }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema 
+                }
+            };
+            
+            try {
+                const result = await fetchWithBackoff(visionApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const textResponse = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!textResponse) {
+                    throw new Error("Respon analisis kosong.");
+                }
+
+                const analysis = JSON.parse(textResponse);
+                
+                if (!analysis.dialog || !analysis.tone || !analysis.gender) {
+                    console.warn("Respon JSON tidak lengkap:", analysis);
+                    throw new Error("Respon JSON tidak lengkap.");
+                }
+
+                console.log("Vision Analysis:", analysis);
+                
+                const aiResponse = `"${analysis.dialog.trim()}"`;
+                resultText.textContent = aiResponse;
+                resultText.className = 'text-center text-gray-200 italic';
+                
+                if (conversationHistory.length === 0 || conversationHistory[conversationHistory.length - 1].role === 'user' || conversationHistory[conversationHistory.length - 1].role === 'system_interrupt') {
+                     conversationHistory.push({ role: 'ai', content: analysis.dialog.trim() });
+                }
+                replyInput.value = '';
+                replyContainer.classList.remove('hidden');
+
+                await Promise.all([
+                    generateAndPlaySpeech(analysis),
+                    getReplySuggestions(analysis.dialog.trim())
+                ]); 
+
+            } catch (error) {
+                console.error("Error analyzing image:", error);
+                resultText.textContent = `(Gagal menganalisis gambar: ${error.message})`;
+                resultText.className = 'text-center text-red-500 italic';
+            }
+        }
+
+        // Ditambahkan instruksi SFW
+        async function generateNewPromptFromHistory(isInterrupt, interruptInstruction = "") {
+            const apiKey = "";
+            const textApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const formattedHistory = getFormattedHistoryForPromptGeneration();
+            let systemPrompt;
+
+            if (isInterrupt) {
+                // (DIUBAH) Instruksi diubah untuk memprioritaskan interupsi di atas riwayat, dan riwayat di atas basis cerita
+                systemPrompt = `Tulis prompt gambar POV baru yang 100% aman (SFW). Terapkan plot twist ini: "${interruptInstruction}".
+Prioritaskan plot twist ini di atas segalanya. Gunakan riwayat obrolan sebagai konteks saat ini dan basis cerita hanya sebagai latar belakang.
+---
+${formattedHistory}
+---
+Prompt Baru (hanya prompt):`;
+            } else {
+                // (DIUBAH) Instruksi diubah untuk memprioritaskan balasan terakhir di atas basis cerita
+                systemPrompt = `Tulis prompt gambar POV baru yang 100% aman (SFW). Lanjutkan riwayat obrolan, dengan **fokus utama** pada balasan terakhir pengguna. Gunakan basis cerita hanya sebagai latar belakang. Jangan mengulang basis cerita.
+---
+${formattedHistory}
+---
+Prompt Baru (hanya prompt):`;
+            }
+
+            const payload = { contents: [{ parts: [{ text: systemPrompt }] }] };
+
+            try {
+                const result = await fetchWithBackoff(textApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const newPrompt = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!newPrompt) {
+                    throw new Error("Model teks gagal menghasilkan prompt baru.");
+                }
+                console.log("Generated New Prompt:", newPrompt.trim());
+                return newPrompt.trim(); 
+            } catch (error) {
+                console.error("Error generating new prompt:", error);
+                showError("Gagal menghasilkan prompt baru dari model teks.", 'reply');
+                return null;
+            }
+        }
+
+        async function generateImageFromPrompt(fullPrompt) {
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+            
+            // Prompt disederhanakan untuk menghindari IMAGE_SAFETY
+            const finalImagePrompt = `Hasilkan gambar (tanpa teks di dalamnya) berdasarkan deskripsi 100% SFW ini. ${currentReferenceImages.length > 0 ? "Gunakan gambar referensi untuk konsistensi wajah." : ""} Deskripsi: ${fullPrompt}`;
+            
+            const payload = {
+                contents: [{
+                    parts: [{ text: finalImagePrompt }, ...currentReferenceImages]
+                }],
+                generationConfig: {
+                    responseModalities: ['IMAGE']
+                },
+            };
+
+            try {
+                const result = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const candidate = result?.candidates?.[0];
+                if (!candidate) {
+                    console.warn("Invalid image response structure (no candidate):", result);
+                    throw new Error("Respon API tidak valid (tidak ada kandidat).");
+                }
+                
+                // Pengecekan finishReason yang lebih baik
+                if (candidate.finishReason && candidate.finishReason !== "STOP") {
+                    console.warn("Image generation stopped:", candidate.finishReason);
+                    throw new Error(`Generasi gambar dihentikan: ${candidate.finishReason}`);
+                }
+                
+                const base64Data = candidate.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+                if (base64Data) {
+                    return base64Data;
+                } 
+                
+                const textResponse = candidate.content?.parts?.[0]?.text;
+                if (textResponse) {
+                    console.warn("Image model responded with text:", textResponse);
+                    throw new Error(`Model gambar merespons dengan teks: "${textResponse}"`);
+                } 
+                
+                console.warn("Invalid image response structure (STOPPED, but no data):", result);
+                throw new Error("Respon gambar tidak valid atau kosong.");
+            } catch (error) {
+                console.error("Error in generateImageFromPrompt:", error);
+                throw error; 
+            }
+        }
+
+        // --- Fungsi Alur Utama ---
+
+        // Ditambahkan instruksi SFW
+        async function generateStoryBasis(initialPrompt) {
+            const apiKey = "";
+            const textApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            
+            const systemPrompt = `Berdasarkan prompt awal pengguna ini: "${initialPrompt}", tulis satu paragraf (4-5 kalimat) yang menjadi basis cerita POV. Paragraf ini HARUS 100% aman (SFW).
+Paragraf ini HARUS mencakup struktur narasi:
+1.  **Act 1 (Setup):** Deskripsikan adegan, suasana, dan perkenalkan subjek (karakter) yang berinteraksi dengan pengguna.
+2.  **Act 2 (Inciting Incident):** Perkenalkan sebuah 'insiden pemicu' atau 'plot twist' kecil yang memulai cerita. (Misalnya: subjek mengatakan sesuatu yang tak terduga, telepon berdering, sebuah objek misterius muncul).
+---
+Jawab hanya dengan paragraf basis cerita yang dikembangkan ini, dalam Bahasa Indonesia.`;
+
+            const payload = { contents: [{ parts: [{ text: systemPrompt }] }] };
+
+            try {
+                const result = await fetchWithBackoff(textApiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const story = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!story) {
+                    throw new Error("Model teks gagal menghasilkan basis cerita.");
+                }
+                console.log("Generated Story Basis (Act 1 & 2):", story.trim());
+                return story.trim(); 
+            } catch (error) {
+                console.error("Error generating story basis:", error);
+                throw error;
+            }
+        }
+
+        // generateImage() sekarang adalah generateStory()
+        async function generateStory() {
+            const initialPrompt = promptInput.value.trim();
+            if (!initialPrompt) {
+                showError("Prompt Awal cerita tidak boleh kosong.");
+                return;
+            }
+
+            // Reset UI
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = 'Membangun Cerita...';
+            loader.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+            imageContainer.classList.add('hidden');
+            textContainer.classList.add('hidden');
+            replyContainer.classList.add('hidden');
+            replyErrorMessage.classList.add('hidden');
+            replySuggestionsContainer.classList.add('hidden');
+            storyBasisContainer.classList.add('hidden'); // Sembunyikan basis cerita lama
+            replyCounter = 0;
+            conversationHistory = [];
+
+            // Proses gambar referensi
+            currentReferenceImages = [];
+            try {
+                const imageInputs = document.querySelectorAll('.image-ref-input');
+                for (const input of imageInputs) {
+                    if (input.files[0]) {
+                        const { base64Data, mimeType } = await fileToBase64(input.files[0]);
+                        currentReferenceImages.push({
+                            inlineData: { mimeType: mimeType, data: base64Data }
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error("Error processing reference images:", error);
+                showError("Gagal memproses gambar referensi.");
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = 'Mulai Cerita';
+                loader.classList.add('hidden');
+                return;
+            }
+            
+            try {
+                // --- LANGKAH A: Hasilkan Basis Cerita Act 1 & 2 ---
+                const storyBasis = await generateStoryBasis(initialPrompt);
+                currentStoryBasis = storyBasis; // Simpan secara global
+                storyBasisText.textContent = storyBasis;
+                storyBasisContainer.classList.remove('hidden');
+
+                // Tambahkan ke riwayat sebagai konteks awal
+                conversationHistory.push({ role: 'user', content: `Mulai cerita dengan prompt: ${initialPrompt}` });
+                conversationHistory.push({ role: 'ai', content: `(Basis Cerita Dibuat: ${storyBasis})` });
+
+                // --- LANGKAH B: Hasilkan Gambar Awal (dari Basis Cerita) ---
+                const base64Data = await generateImageFromPrompt(storyBasis);
+                resultImage.src = `data:image/png;base64,${base64Data}`;
+                imageContainer.classList.remove('hidden');
+                currentImageBase64 = base64Data;
+                
+                // --- LANGKAH C: Hasilkan Dialog Awal ---
+                await getDialogueAndSpeechAnalysis(base64Data);
+
+            } catch (error) {
+                console.error("Error generating story:", error);
+                showError("Gagal memulai cerita: " + error.message);
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = 'Mulai Cerita';
+                loader.classList.add('hidden');
+            }
+        }
+
+        async function handleReply() {
+            let replyText = replyInput.value.trim();
+            if (!replyText) {
+                showError("Silakan masukkan balasan atau instruksi modifikasi.", 'reply');
+                return;
+            }
+            if (!currentImageBase64) {
+                showError("Error: Tidak ada gambar sebelumnya untuk dimodifikasi.", 'reply');
+                return;
+            }
+
+            // --- Logika Pattern Interrupt ---
+            replyCounter++; 
+            let isInterrupt = false;
+            let interruptInstruction = "";
+            if (replyCounter >= INTERRUPT_THRESHOLD) {
+                isInterrupt = true;
+                interruptInstruction = interruptScenarios[Math.floor(Math.random() * interruptScenarios.length)];
+                replyCounter = 0;
+                console.log("--- PATTERN INTERRUPT TRIGERRED ---", interruptInstruction);
+            }
+            // --- Akhir Logika Interupsi ---
+
+            replyBtn.disabled = true;
+            replyLoader.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+            replyErrorMessage.classList.add('hidden');
+            textContainer.classList.add('hidden');
+            replyContainer.classList.add('hidden');
+            replySuggestionsContainer.classList.add('hidden');
+
+            conversationHistory.push({ role: 'user', content: replyText });
+            if (isInterrupt) {
+                conversationHistory.push({ role: 'system_interrupt', content: interruptInstruction });
+            }
+
+            try {
+                // --- LANGKAH A: Hasilkan Prompt Baru dari Model Teks ---
+                textContainer.classList.remove('hidden');
+                resultText.textContent = 'Membuat skenario baru...';
+                resultText.className = 'text-center text-gray-400 italic';
+                const newPrompt = await generateNewPromptFromHistory(isInterrupt, interruptInstruction);
+                if (!newPrompt) {
+                    throw new Error("Gagal mendapatkan prompt baru dari model teks.");
+                }
+
+                // --- LANGKAH B: Hasilkan Gambar dari Prompt Baru ---
+                resultText.textContent = 'Menggambar gambar baru...';
+                const newBase64Data = await generateImageFromPrompt(newPrompt);
+
+                // --- LANGKAH C: Tampilkan Hasil ---
+                resultImage.src = `data:image/png;base64,${newBase64Data}`;
+                currentImageBase64 = newBase64Data;
+                
+                await getDialogueAndSpeechAnalysis(newBase64Data);
+
+            } catch (error) {
+                console.error("Error modifying image:", error);
+                showError("Gagal memodifikasi gambar: " + error.message, 'reply');
+                replyContainer.classList.remove('hidden');
+                
+                conversationHistory.pop(); 
+                if (isInterrupt) {
+                    conversationHistory.pop(); 
+                    replyCounter = INTERRUPT_THRESHOLD - 1; 
+                } else {
+                    replyCounter--; 
+                }
+            } finally {
+                replyBtn.disabled = false;
+                replyLoader.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
